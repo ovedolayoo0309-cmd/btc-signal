@@ -531,18 +531,95 @@ function getWinStart(ts) {
   return d.getTime();
 }
 
-// ── WebSocket ─────────────────────────────────────────────────
+// ── Data Feed — WebSocket with REST fallback ───────────────────
+let useRest = false;
+let restTimer = null;
+let wsFailCount = 0;
+
 function connect() {
+  if (useRest) { startRest(); return; }
   if (ws) { try{ws.close();}catch(e){} }
   setConn(false, false);
-  ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@trade');
-  ws.onopen  = () => { setConn(true,false); clearTimeout(retryT); };
-  ws.onmessage = e => {
-    const d = JSON.parse(e.data);
-    tick(parseFloat(d.p), d.T);
-  };
-  ws.onerror = () => setConn(false,true);
-  ws.onclose = () => { setConn(false,true); retryT = setTimeout(connect,3000); };
+
+  try {
+    ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@trade');
+
+    const wsTimeout = setTimeout(() => {
+      // WebSocket didn't connect in 5s — fall back to REST
+      wsFailCount++;
+      if (wsFailCount >= 1) {
+        useRest = true;
+        try{ws.close();}catch(e){}
+        startRest();
+      }
+    }, 5000);
+
+    ws.onopen  = () => {
+      clearTimeout(wsTimeout);
+      wsFailCount = 0;
+      setConn(true, false);
+      clearTimeout(retryT);
+    };
+    ws.onmessage = e => {
+      const d = JSON.parse(e.data);
+      tick(parseFloat(d.p), d.T);
+    };
+    ws.onerror = () => {
+      clearTimeout(wsTimeout);
+      wsFailCount++;
+      if (wsFailCount >= 2) { useRest = true; startRest(); }
+      else { setConn(false, true); retryT = setTimeout(connect, 3000); }
+    };
+    ws.onclose = () => {
+      clearTimeout(wsTimeout);
+      if (!useRest) { setConn(false, true); retryT = setTimeout(connect, 3000); }
+    };
+  } catch(e) {
+    useRest = true;
+    startRest();
+  }
+}
+
+// ── REST polling (iOS Safari fallback) ────────────────────────
+function startRest() {
+  clearTimeout(restTimer);
+  setConn(false, false);
+  $('connLabel').textContent = 'CONNECTING';
+  pollRest();
+}
+
+async function pollRest() {
+  try {
+    // Try Binance REST first
+    const res = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT');
+    if (!res.ok) throw new Error('binance fail');
+    const d = await fetch('https://api.binance.com/api/v3/ticker/bookTicker?symbol=BTCUSDT');
+    const data = await res.json();
+    const price = parseFloat(data.price);
+    if (!isNaN(price)) {
+      setConn(true, false);
+      $('connLabel').textContent = 'LIVE · REST';
+      $('errBanner').style.display = 'none';
+      tick(price, Date.now());
+    }
+  } catch(e1) {
+    try {
+      // Fallback to Coinbase if Binance REST also fails
+      const res2 = await fetch('https://api.coinbase.com/v2/prices/BTC-USD/spot');
+      const d2 = await res2.json();
+      const price2 = parseFloat(d2.data.amount);
+      if (!isNaN(price2)) {
+        setConn(true, false);
+        $('connLabel').textContent = 'LIVE · CB';
+        $('errBanner').style.display = 'none';
+        tick(price2, Date.now());
+      }
+    } catch(e2) {
+      setConn(false, true);
+    }
+  }
+  // Poll every 1.5 seconds
+  restTimer = setTimeout(pollRest, 1500);
 }
 
 // ── Tick ──────────────────────────────────────────────────────
