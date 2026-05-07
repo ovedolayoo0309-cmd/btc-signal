@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BTC Signal">
+<meta name="theme-color" content="#060a0d">
+<title>BTC · KXBTC15M</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=DM+Mono:wght@300;400;500&display=swap');
+
+:root {
+–bg: #060a0d;
+–surface: #0b1117;
+–card: #0f1820;
+–border: #162230;
+–up: #00f5a0;
+–down: #ff2d55;
+–neutral: #3a8fc4;
+–warn: #f7931a;
+–text: #d0e8f0;
+–muted: #3a5568;
+–dim: #1a3040;
+–gup: rgba(0,245,160,0.12);
+–gdown: rgba(255,45,85,0.12);
+}
+
+- { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+html, body {
+height: 100%;
+overflow-x: hidden;
+background: var(–bg);
+color: var(–text);
+font-family: ‘DM Mono’, monospace;
+-webkit-font-smoothing: antialiased;
+}
+
+/* ── LAYOUT ── */
+.app {
+display: flex;
+flex-direction: column;
+min-height: 100vh;
+min-height: 100dvh;
+max-width: 430px;
+margin: 0 auto;
+padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px);
+}
+
+/* ── HEADER ── */
+.hdr {
+display: flex;
+align-items: center;
+justify-content: space-between;
+padding: 14px 18px 12px;
+border-bottom: 1px solid var(–border);
+background: rgba(6,10,13,0.95);
+backdrop-filter: blur(12px);
+position: sticky;
+top: 0;
+z-index: 50;
+}
+
+.logo {
+font-family: ‘Orbitron’, sans-serif;
+font-size: 13px;
+font-weight: 900;
+letter-spacing: 2px;
+color: var(–warn);
+}
+.logo em { color: var(–text); font-style: normal; }
+
+.hdr-right { display: flex; align-items: center; gap: 8px; }
+
+.dot {
+width: 7px; height: 7px;
+border-radius: 50%;
+background: var(–muted);
+transition: background 0.3s, box-shadow 0.3s;
+}
+.dot.live { background: var(–up); box-shadow: 0 0 8px var(–up); animation: blink 2s infinite; }
+.dot.err  { background: var(–down); }
+
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+.conn-label {
+font-size: 9px;
+letter-spacing: 1.5px;
+color: var(–muted);
+text-transform: uppercase;
+}
+
+/* ── PRICE BLOCK ── */
+.price-block {
+padding: 24px 18px 18px;
+text-align: center;
+position: relative;
+}
+
+.price-eyebrow {
+font-size: 9px;
+letter-spacing: 3px;
+color: var(–muted);
+margin-bottom: 10px;
+}
+
+.price-main {
+font-family: ‘Orbitron’, sans-serif;
+font-size: clamp(38px, 11vw, 52px);
+font-weight: 900;
+letter-spacing: 1px;
+line-height: 1;
+color: var(–text);
+transition: color 0.3s, text-shadow 0.3s;
+}
+.price-main.up   { color: var(–up);   text-shadow: 0 0 28px rgba(0,245,160,0.35); }
+.price-main.down { color: var(–down); text-shadow: 0 0 28px rgba(255,45,85,0.35); }
+
+.price-delta {
+margin-top: 8px;
+font-size: 12px;
+color: var(–muted);
+letter-spacing: 1px;
+transition: color 0.3s;
+height: 18px;
+}
+.price-delta.up   { color: var(–up); }
+.price-delta.down { color: var(–down); }
+
+/* ── WINDOW BAR ── */
+.win-bar {
+margin: 0 18px 14px;
+background: var(–card);
+border: 1px solid var(–border);
+border-radius: 10px;
+padding: 11px 14px;
+}
+
+.win-row {
+display: flex;
+align-items: center;
+justify-content: space-between;
+margin-bottom: 8px;
+}
+
+.win-label { font-size: 9px; letter-spacing: 2px; color: var(–muted); }
+.win-open  { font-size: 11px; color: var(–text); }
+.win-timer {
+font-family: ‘Orbitron’, sans-serif;
+font-size: 14px;
+font-weight: 700;
+color: var(–warn);
+letter-spacing: 1px;
+}
+
+.track {
+height: 3px;
+background: var(–dim);
+border-radius: 2px;
+overflow: hidden;
+}
+.fill {
+height: 100%;
+background: linear-gradient(90deg, var(–neutral), var(–warn));
+border-radius: 2px;
+transition: width 1s linear;
+}
+
+/* ── SIGNAL CARD ── */
+.sig-card {
+margin: 0 18px 14px;
+background: var(–card);
+border: 1px solid var(–border);
+border-radius: 14px;
+padding: 20px 18px;
+position: relative;
+overflow: hidden;
+transition: border-color 0.5s, box-shadow 0.5s;
+}
+
+.sig-card::before {
+content: ‘’;
+position: absolute;
+inset: 0;
+border-radius: 14px;
+opacity: 0;
+transition: opacity 0.5s;
+pointer-events: none;
+}
+
+.sig-card.up   { border-color: var(–up);   box-shadow: 0 0 40px var(–gup),   inset 0 0 40px var(–gup); }
+.sig-card.up::before   { background: radial-gradient(ellipse at 50% 0%, var(–gup), transparent 65%); opacity:1; }
+.sig-card.down { border-color: var(–down); box-shadow: 0 0 40px var(–gdown), inset 0 0 40px var(–gdown); }
+.sig-card.down::before { background: radial-gradient(ellipse at 50% 0%, var(–gdown), transparent 65%); opacity:1; }
+
+.sig-top {
+display: flex;
+align-items: center;
+justify-content: space-between;
+margin-bottom: 18px;
+}
+
+.sig-eyebrow { font-size: 9px; letter-spacing: 2.5px; color: var(–muted); }
+
+.sig-pill {
+font-size: 9px;
+letter-spacing: 1.5px;
+font-weight: 500;
+padding: 4px 10px;
+border-radius: 20px;
+border: 1px solid var(–border);
+color: var(–muted);
+background: var(–dim);
+transition: all 0.4s;
+}
+.sig-pill.up   { border-color: var(–up);   color: var(–up);   background: var(–gup); }
+.sig-pill.down { border-color: var(–down); color: var(–down); background: var(–gdown); }
+
+.sig-main {
+font-family: ‘Orbitron’, sans-serif;
+font-size: clamp(28px, 9vw, 40px);
+font-weight: 900;
+letter-spacing: 2px;
+text-align: center;
+color: var(–muted);
+line-height: 1;
+padding: 6px 0 18px;
+transition: color 0.4s, text-shadow 0.4s;
+}
+.sig-main.up   { color: var(–up);   text-shadow: 0 0 30px rgba(0,245,160,0.4); }
+.sig-main.down { color: var(–down); text-shadow: 0 0 30px rgba(255,45,85,0.4); }
+
+.conf-row {
+display: flex;
+align-items: center;
+gap: 10px;
+}
+.conf-lbl { font-size: 9px; letter-spacing: 1.5px; color: var(–muted); white-space: nowrap; }
+.conf-track { flex:1; height:5px; background:var(–dim); border-radius:3px; overflow:hidden; }
+.conf-fill  { height:100%; border-radius:3px; transition: width 0.8s ease, background 0.4s; }
+.conf-pct   { font-size: 11px; color: var(–text); min-width: 32px; text-align:right; font-weight:500; }
+
+/* ── INDICATORS ── */
+.ind-section {
+margin: 0 18px 14px;
+}
+
+.ind-title {
+font-size: 9px;
+letter-spacing: 2.5px;
+color: var(–muted);
+margin-bottom: 10px;
+padding-left: 2px;
+}
+
+.ind-grid {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 8px;
+}
+
+.ind {
+background: var(–card);
+border: 1px solid var(–border);
+border-radius: 10px;
+padding: 12px 13px;
+position: relative;
+overflow: hidden;
+transition: border-color 0.3s;
+}
+.ind::after {
+content:’’;
+position:absolute;
+bottom:0; left:0; right:0;
+height:2px;
+background: var(–muted);
+transition: background 0.3s;
+}
+.ind.bull { border-color: rgba(0,245,160,0.2); }
+.ind.bull::after { background: var(–up); }
+.ind.bear { border-color: rgba(255,45,85,0.2); }
+.ind.bear::after { background: var(–down); }
+
+.ind-name { font-size: 8px; letter-spacing: 1.5px; color: var(–muted); margin-bottom: 5px; }
+.ind-val  {
+font-family: ‘Orbitron’, sans-serif;
+font-size: 16px;
+font-weight: 700;
+line-height: 1;
+color: var(–text);
+transition: color 0.3s;
+margin-bottom: 3px;
+}
+.ind-val.up   { color: var(–up); }
+.ind-val.down { color: var(–down); }
+
+.ind-sub { font-size: 8px; color: var(–muted); }
+
+.ind-tag {
+position: absolute;
+top: 10px; right: 10px;
+font-size: 7px;
+letter-spacing: 1px;
+padding: 2px 5px;
+border-radius: 3px;
+}
+.ind-tag.bull { background: rgba(0,245,160,0.1); color: var(–up); }
+.ind-tag.bear { background: rgba(255,45,85,0.1); color: var(–down); }
+.ind-tag.neut { background: rgba(58,143,196,0.1); color: var(–neutral); }
+
+/* ── TAPE ── */
+.tape-section {
+margin: 0 18px 14px;
+background: var(–card);
+border: 1px solid var(–border);
+border-radius: 10px;
+padding: 12px 14px;
+}
+.tape-lbl { font-size: 9px; letter-spacing: 2px; color: var(–muted); margin-bottom: 10px; }
+.tape {
+display: flex;
+gap: 2px;
+align-items: flex-end;
+height: 44px;
+}
+.t-bar {
+flex: 1;
+border-radius: 1px;
+min-width: 3px;
+transition: height 0.2s;
+}
+.t-bar.u { background: var(–up);   opacity: 0.55; }
+.t-bar.d { background: var(–down); opacity: 0.55; }
+
+/* ── FOOTER ── */
+.footer {
+margin: 0 18px;
+padding: 14px 0 20px;
+border-top: 1px solid var(–border);
+text-align: center;
+}
+.footer-warn {
+font-size: 8px;
+letter-spacing: 0.8px;
+color: var(–muted);
+line-height: 2;
+}
+.last-upd {
+font-size: 8px;
+color: var(–dim);
+margin-top: 6px;
+letter-spacing: 1px;
+}
+
+/* ── ERROR BANNER ── */
+.err-banner {
+margin: 0 18px 10px;
+background: rgba(255,45,85,0.08);
+border: 1px solid rgba(255,45,85,0.3);
+border-radius: 8px;
+padding: 8px 12px;
+font-size: 10px;
+color: var(–down);
+letter-spacing: 1px;
+display: none;
+}
+
+/* ── PULSE ANIMATION on signal change ── */
+@keyframes flashup   { 0%{background:rgba(0,245,160,0.15)} 100%{background:transparent} }
+@keyframes flashdown { 0%{background:rgba(255,45,85,0.15)} 100%{background:transparent} }
+.flash-up   { animation: flashup   0.6s ease; }
+.flash-down { animation: flashdown 0.6s ease; }
+</style>
+
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+
+  <div class="hdr">
+    <div class="logo">KXBTC<em>15M</em></div>
+    <div class="hdr-right">
+      <div class="dot" id="dot"></div>
+      <span class="conn-label" id="connLabel">CONNECTING</span>
+    </div>
+  </div>
+
+  <!-- Price -->
+
+  <div class="price-block">
+    <div class="price-eyebrow">BTC / USDT · BINANCE LIVE</div>
+    <div class="price-main" id="priceMain">—</div>
+    <div class="price-delta" id="priceDelta">— from window open</div>
+  </div>
+
+  <!-- Window bar -->
+
+  <div class="win-bar">
+    <div class="win-row">
+      <span class="win-label">15M WINDOW</span>
+      <span class="win-open" id="winOpen">OPEN: —</span>
+      <span class="win-timer" id="winTimer">15:00</span>
+    </div>
+    <div class="track"><div class="fill" id="winFill" style="width:0%"></div></div>
+  </div>
+
+  <!-- Error -->
+
+  <div class="err-banner" id="errBanner">⚠ FEED ERROR — RETRYING IN 3s...</div>
+
+  <!-- Signal -->
+
+  <div class="sig-card" id="sigCard">
+    <div class="sig-top">
+      <span class="sig-eyebrow">KALSHI BET SIGNAL</span>
+      <span class="sig-pill" id="sigPill">WAIT</span>
+    </div>
+    <div class="sig-main" id="sigMain">ANALYZING</div>
+    <div class="conf-row">
+      <span class="conf-lbl">CONFIDENCE</span>
+      <div class="conf-track"><div class="conf-fill" id="confFill" style="width:0%;background:var(--neutral)"></div></div>
+      <span class="conf-pct" id="confPct">0%</span>
+    </div>
+  </div>
+
+  <!-- Indicators -->
+
+  <div class="ind-section">
+    <div class="ind-title">SIGNAL INDICATORS</div>
+    <div class="ind-grid">
+
+```
+  <div class="ind" id="iMom">
+    <div class="ind-name">15M MOMENTUM</div>
+    <div class="ind-val" id="momV">—</div>
+    <div class="ind-sub">vs window open</div>
+    <span class="ind-tag neut" id="momT">—</span>
+  </div>
+
+  <div class="ind" id="iVel">
+    <div class="ind-name">VELOCITY</div>
+    <div class="ind-val" id="velV">—</div>
+    <div class="ind-sub">$/min · 3m avg</div>
+    <span class="ind-tag neut" id="velT">—</span>
+  </div>
+
+  <div class="ind" id="iTrend">
+    <div class="ind-name">MICRO TREND</div>
+    <div class="ind-val" id="trendV">—</div>
+    <div class="ind-sub">last 5 ticks</div>
+    <span class="ind-tag neut" id="trendT">—</span>
+  </div>
+
+  <div class="ind" id="iAccel">
+    <div class="ind-name">ACCELERATION</div>
+    <div class="ind-val" id="accelV">—</div>
+    <div class="ind-sub">velocity Δ</div>
+    <span class="ind-tag neut" id="accelT">—</span>
+  </div>
+
+  <div class="ind" id="iVol">
+    <div class="ind-name">VOLATILITY</div>
+    <div class="ind-val" id="volV">—</div>
+    <div class="ind-sub">15m range</div>
+    <span class="ind-tag neut" id="volT">—</span>
+  </div>
+
+  <div class="ind" id="iDelta">
+    <div class="ind-name">WINDOW Δ</div>
+    <div class="ind-val" id="deltaV">—</div>
+    <div class="ind-sub">$ from open</div>
+    <span class="ind-tag neut" id="deltaT">—</span>
+  </div>
+
+</div>
+```
+
+  </div>
+
+  <!-- Tape -->
+
+  <div class="tape-section">
+    <div class="tape-lbl">PRICE TAPE · 40 TICKS</div>
+    <div class="tape" id="tape"></div>
+  </div>
+
+  <!-- Footer -->
+
+  <div class="footer">
+    <div class="footer-warn">
+      ⚠ NOT FINANCIAL ADVICE · SIGNAL IS INFORMATIONAL ONLY<br>
+      15-MIN BTC MARKETS CARRY HIGH RISK · TRADE RESPONSIBLY
+    </div>
+    <div class="last-upd" id="lastUpd">LAST UPDATE: —</div>
+  </div>
+
+</div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────
+const prices = [];
+const MAX = 200;
+const TAPE = 40;
+let winOpenPrice = null;
+let winOpenTime  = null;
+let prevPrice    = null;
+let prevSig      = null;
+let ws = null;
+let retryT = null;
+
+// ── Helpers ───────────────────────────────────────────────────
+const $  = id => document.getElementById(id);
+const f2 = n  => n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fs = n  => (n>=0?'+':'')+f2(n);
+const fp = n  => (n>=0?'+':'')+n.toFixed(3)+'%';
+
+function setConn(live, err) {
+  $('dot').className = 'dot' + (live?' live':err?' err':'');
+  $('connLabel').textContent = live ? 'LIVE · BINANCE' : err ? 'ERROR' : 'CONNECTING';
+  $('errBanner').style.display = err ? 'block' : 'none';
+}
+
+function getWinStart(ts) {
+  const d = new Date(ts);
+  const m = Math.floor(d.getUTCMinutes()/15)*15;
+  d.setUTCMinutes(m,0,0);
+  return d.getTime();
+}
+
+// ── WebSocket ─────────────────────────────────────────────────
+function connect() {
+  if (ws) { try{ws.close();}catch(e){} }
+  setConn(false, false);
+  ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@trade');
+  ws.onopen  = () => { setConn(true,false); clearTimeout(retryT); };
+  ws.onmessage = e => {
+    const d = JSON.parse(e.data);
+    tick(parseFloat(d.p), d.T);
+  };
+  ws.onerror = () => setConn(false,true);
+  ws.onclose = () => { setConn(false,true); retryT = setTimeout(connect,3000); };
+}
+
+// ── Tick ──────────────────────────────────────────────────────
+function tick(price, ts) {
+  const now = Date.now();
+  const ws0 = getWinStart(now);
+  if (!winOpenTime || ws0 !== getWinStart(winOpenTime)) {
+    winOpenPrice = price;
+    winOpenTime  = ws0;
+  }
+  prices.push({price, ts:now});
+  if (prices.length > MAX) prices.shift();
+  render(price, now);
+  prevPrice = price;
+}
+
+// ── Signal ────────────────────────────────────────────────────
+function calcSignal(price, now) {
+  const r = {dir:'neutral', label:'WAIT', conf:0, ind:{}};
+  if (prices.length < 5 || !winOpenPrice) return r;
+
+  const sigs = [];
+
+  // Momentum
+  const mom = ((price - winOpenPrice)/winOpenPrice)*100;
+  r.ind.mom = mom;
+  if (Math.abs(mom) > 0.03) sigs.push(mom>0?1:-1);
+
+  // Velocity
+  const c3 = now - 180000;
+  const r3 = prices.filter(p=>p.ts>=c3);
+  let vel = 0;
+  if (r3.length>=2) { const dt=(now-r3[0].ts)/60000; vel = dt>0?(price-r3[0].price)/dt:0; }
+  r.ind.vel = vel;
+  if (Math.abs(vel)>5) sigs.push(vel>0?1:-1);
+
+  // Micro trend
+  const l5 = prices.slice(-6);
+  let ups=0,dns=0;
+  for(let i=1;i<l5.length;i++) l5[i].price>l5[i-1].price?ups++:l5[i].price<l5[i-1].price?dns++:0;
+  const mt = ups-dns;
+  r.ind.mt = mt;
+  if (Math.abs(mt)>=3) sigs.push(mt>0?1:-1);
+
+  // Acceleration
+  const s1=prices.filter(p=>p.ts>=now-60000);
+  const s2=prices.filter(p=>p.ts>=now-120000&&p.ts<now-60000);
+  let v1=0,v2=0;
+  if(s1.length>=2) v1=s1[s1.length-1].price-s1[0].price;
+  if(s2.length>=2) v2=s2[s2.length-1].price-s2[0].price;
+  const ac=v1-v2;
+  r.ind.ac = ac;
+  if (Math.abs(ac)>20) sigs.push(ac>0?1:-1);
+
+  // Volatility
+  const c15=prices.filter(p=>p.ts>=now-900000);
+  let vol=0;
+  if(c15.length>=2){const hi=Math.max(...c15.map(p=>p.price));const lo=Math.min(...c15.map(p=>p.price));vol=hi-lo;}
+  r.ind.vol = vol;
+
+  // Window delta
+  r.ind.delta = price - winOpenPrice;
+
+  // Aggregate
+  if (!sigs.length) return r;
+  const score = sigs.reduce((a,b)=>a+b,0);
+  const rawConf = Math.abs(score)/sigs.length;
+  const volPen = Math.min(vol/500,0.3);
+  const conf = Math.max(0,rawConf-volPen);
+
+  if (conf < 0.25 || Math.abs(score)<2) { r.dir='neutral'; r.label='WAIT'; r.conf=conf; }
+  else if (score>0) { r.dir='up'; r.label='BET UP ↑'; r.conf=conf; }
+  else              { r.dir='down'; r.label='BET DOWN ↓'; r.conf=conf; }
+  return r;
+}
+
+// ── Render ────────────────────────────────────────────────────
+function render(price, now) {
+  // Price
+  const pm = $('priceMain');
+  pm.textContent = '$'+f2(price);
+  pm.className = 'price-main'+(prevPrice===null?'':price>prevPrice?' up':price<prevPrice?' down':'');
+
+  if (winOpenPrice) {
+    const chg=price-winOpenPrice, pct=(chg/winOpenPrice)*100;
+    const pd=$('priceDelta');
+    pd.textContent = fs(chg)+' ('+fp(pct)+') from open';
+    pd.className='price-delta '+(chg>=0?'up':'down');
+  }
+
+  // Window timer
+  const ws0=getWinStart(now), we=ws0+900000;
+  const pct=Math.min(100,((now-ws0)/900000)*100);
+  $('winFill').style.width=pct+'%';
+  const sl=Math.max(0,Math.floor((we-now)/1000));
+  $('winTimer').textContent=String(Math.floor(sl/60)).padStart(2,'0')+':'+String(sl%60).padStart(2,'0');
+  $('winOpen').textContent='OPEN $'+f2(winOpenPrice||0);
+
+  // Signal
+  const sig = calcSignal(price, now);
+
+  const card=$('sigCard');
+  card.className='sig-card '+(sig.dir==='up'?'up':sig.dir==='down'?'down':'');
+
+  const sm=$('sigMain');
+  if (prevSig !== sig.dir) {
+    sm.classList.remove('flash-up','flash-down');
+    void sm.offsetWidth;
+    if (sig.dir==='up')   sm.classList.add('flash-up');
+    if (sig.dir==='down') sm.classList.add('flash-down');
+  }
+  sm.textContent = sig.label;
+  sm.className = 'sig-main'+(sig.dir==='up'?' up':sig.dir==='down'?' down':'');
+
+  const pill=$('sigPill');
+  pill.className='sig-pill'+(sig.dir==='up'?' up':sig.dir==='down'?' down':'');
+  pill.textContent = sig.dir==='up'?'▲ UP':sig.dir==='down'?'▼ DOWN':'◆ WAIT';
+
+  const cp=Math.round(sig.conf*100);
+  $('confFill').style.width=cp+'%';
+  $('confFill').style.background=sig.dir==='up'?'var(--up)':sig.dir==='down'?'var(--down)':'var(--neutral)';
+  $('confPct').textContent=cp+'%';
+  prevSig=sig.dir;
+
+  // Indicators
+  const {mom,vel,mt,ac,vol,delta}=sig.ind;
+
+  function setInd(card,val,valEl,sub,tagEl,cond,fmt,tagUp,tagDn,tagNt) {
+    const dir=cond>0?'up':cond<0?'down':'neutral';
+    $(card).className='ind '+(dir==='up'?'bull':dir==='down'?'bear':'');
+    $(valEl).textContent=fmt;
+    $(valEl).className='ind-val '+(dir==='up'?'up':dir==='down'?'down':'');
+    $(tagEl).textContent=dir==='up'?tagUp:dir==='down'?tagDn:tagNt;
+    $(tagEl).className='ind-tag '+(dir==='up'?'bull':dir==='down'?'bear':'neut');
+  }
+
+  if(mom!==undefined) setInd('iMom','momV',null,'momT', mom>0.03?1:mom<-0.03?-1:0, null, fp(mom),'BULL','BEAR','FLAT');
+  // manual for each since helper is simplified
+  function ind(cardId,valId,tagId,dir,valTxt,tUp,tDn,tNt){
+    $(cardId).className='ind '+(dir==='up'?'bull':dir==='down'?'bear':'');
+    $(valId).textContent=valTxt;
+    $(valId).className='ind-val '+(dir==='up'?'up':dir==='down'?'down':'');
+    $(tagId).textContent=dir==='up'?tUp:dir==='down'?tDn:tNt;
+    $(tagId).className='ind-tag '+(dir==='up'?'bull':dir==='down'?'bear':'neut');
+  }
+
+  if(mom!==undefined){
+    const d=mom>0.03?'up':mom<-0.03?'down':'neutral';
+    ind('iMom','momV','momT',d,fp(mom),'BULL','BEAR','FLAT');
+  }
+  if(vel!==undefined){
+    const d=vel>5?'up':vel<-5?'down':'neutral';
+    ind('iVel','velV','velT',d,fs(vel)+'$/m','CLIMB','DROP','FLAT');
+  }
+  if(mt!==undefined){
+    const d=mt>=3?'up':mt<=-3?'down':'neutral';
+    ind('iTrend','trendV','trendT',d,(mt>0?'+':'')+mt+'/5','▲ UP','▼ DN','MIX');
+  }
+  if(ac!==undefined){
+    const d=ac>20?'up':ac<-20?'down':'neutral';
+    ind('iAccel','accelV','accelT',d,fs(ac),'ACCEL↑','ACCEL↓','STEADY');
+  }
+  if(vol!==undefined){
+    const d=vol>200?'down':vol<80?'up':'neutral';
+    ind('iVol','volV','volT',d,'$'+f2(vol),'LOW','HIGH','MOD');
+  }
+  if(delta!==undefined){
+    const d=delta>10?'up':delta<-10?'down':'neutral';
+    ind('iDelta','deltaV','deltaT',d,fs(delta),'ABOVE','BELOW','NEAR');
+  }
+
+  // Tape
+  const tapeEl=$('tape');
+  const td=prices.slice(-TAPE);
+  if(td.length>=2){
+    const lo=Math.min(...td.map(p=>p.price));
+    const hi=Math.max(...td.map(p=>p.price));
+    const rng=hi-lo||1;
+    tapeEl.innerHTML='';
+    td.forEach((p,i)=>{
+      const bar=document.createElement('div');
+      const h=Math.max(3,((p.price-lo)/rng)*40);
+      const isUp=i===0||p.price>=td[i-1].price;
+      bar.className='t-bar '+(isUp?'u':'d');
+      bar.style.height=h+'px';
+      tapeEl.appendChild(bar);
+    });
+  }
+
+  $('lastUpd').textContent='LAST UPDATE: '+new Date().toLocaleTimeString();
+}
+
+// ── Boot ──────────────────────────────────────────────────────
+connect();
+
+// Clock tick for window timer even without price updates
+setInterval(()=>{
+  if(winOpenPrice && prevPrice) {
+    const now=Date.now();
+    const ws0=getWinStart(now), we=ws0+900000;
+    const pct=Math.min(100,((now-ws0)/900000)*100);
+    $('winFill').style.width=pct+'%';
+    const sl=Math.max(0,Math.floor((we-now)/1000));
+    $('winTimer').textContent=String(Math.floor(sl/60)).padStart(2,'0')+':'+String(sl%60).padStart(2,'0');
+  }
+},1000);
+</script>
+
+</body>
+</html>
